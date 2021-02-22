@@ -92,6 +92,7 @@
 
 <script>
 import { required, minLength, numeric } from 'vuelidate/lib/validators';
+import axios from 'axios';
 
 export default {
   name: 'Register',
@@ -119,6 +120,11 @@ export default {
     department: {
       required,
     },
+  },
+  methods: {
+      test (){
+          let x = axios.get("http://localhost:5000/get-departments")
+      }
   },
 };
 </script>

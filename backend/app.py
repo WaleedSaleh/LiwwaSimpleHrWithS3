@@ -29,9 +29,9 @@ app.config['SECRET_KEY'] = secrets.token_hex(32)
 app.config["ALLOWED_EXTENSIONS"] = ["pdf","docx"]
 
 
-AWS_ACCESS_KEY_ID = "AKIAIU63WQ3IE77EVE6Q"
+AWS_ACCESS_KEY_ID = "SECRET!"
 
-AWS_SECERET_ACCESS_KEY = "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"
+AWS_SECERET_ACCESS_KEY = "SECRET!"
 
 
 #Conffigure the file content length
@@ -104,6 +104,13 @@ class Department(db.Model):
     applicant_id = db.relationship('Applicant', backref='department', lazy=True)
     created_at = db.Column(db.DateTime, default=dt.utcnow)
 
+    @property
+    def serialize(self):
+       """Return object data in easily serializable format"""
+       return {
+           'id': self.id,
+           'name': self.name,
+       }
 
 
 
@@ -113,32 +120,22 @@ def index():
     files_list = list_files(BUCKET) if list_files(BUCKET) is not None else None
     return render_template("index.html", files_list=files_list)
 
-
 #upload_view
 @app.route("/upload", methods=['POST'])
 def upload():
     try:
         if request.method == "POST":
             print("Entered Here => ", file=sys.stdout)
-            # f = request.files['file']
-            full_name = request.args.get("full_name",'')
-            print(f"{full_name}", file=sys.stdout)
-            date_of_birth = request.args.get("date_of_birth")
-            print(f"{date_of_birth}", file=sys.stdout)
-            years_of_experience = request.args.get("years_of_experience")
-            print(f"{years_of_experience}", file=sys.stdout)
-            department_id = request.args.get("department_id")
-            print(f"{department_id}", file=sys.stdout)
+            full_name = request.form.get("full_name",'')
+            date_of_birth = request.form.get("date_of_birth")
+            years_of_experience = request.form.get("years_of_experience")
+            department_id = request.form.get("department_id")
             attachment = request.files['attachment']
-            print(f"att =>  {attachment} ", file=sys.stdout)
             if attachment is None:
                 return jsonify({"404":"File not found"})
-
             if attachment.filename == "":
                 return jsonify({"404":"File not found"})
-
             if attachment and allowed_file(attachment.filename):
-
                 attachment.save(os.path.join(UPLOAD_FOLDER, attachment.filename))
                 upload_file(f"uploads/{attachment.filename}", BUCKET)
                 file_type = allowed_file(attachment.filename)
@@ -147,7 +144,7 @@ def upload():
                 attachment__file_name=attachment.filename, attachment__file_type = file_type)
                 db.session.add(applicant)
                 db.session.commit()
-                return jsonify({"status":201, "filename":f"{f.filename}"})
+                return jsonify({"status":201, "filename":f"{attachment.filename}"})
             else:
                 return jsonify({"type_error":"please check your file extension!"})
         elif request.method == "GET":
@@ -168,16 +165,24 @@ def download(filename):
         print(f"error in download => {e}", file=sys.stdout)
         return jsonify({"error": "something went wrong"})
 
+#For making the login route
+@app.route("/login")
+def login():
+    pass
+
+#Get departments
+@app.route('/get-departments', methods=['GET'])
+def get_departments():
+    return jsonify(json_list = [i.serialize for i in Department.query.all()])
+
+@app.route("/get-applicants", methods=['POST'])
+def get_all_applicants():
+    return jsonify(json_list = [i.serialize for i in Applicant.query.all()])
 
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
-
-@app.route("/get-applicants")
-def get_all_applicants():
-    applicants = Applicant.query.all()
-    return jsonify(json_list = [i.serialize for i in Applicant.query.all()])
 
 
 if __name__ == "__main__":
